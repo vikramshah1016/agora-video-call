@@ -1,17 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:agora_video_call/model/Contact.dart';
+import 'package:agora_video_call/utils/api_client.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:agora_video_call/static/static_values.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+bool isLogin = false;
 
 class Home extends StatefulWidget {
-
   const Home({Key? key}) : super(key: key);
 
   @override
@@ -19,93 +15,99 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  List callerInfoList = [];
-  var loginUserPhone="";
+  List<User> callerInfoList = <User>[];
 
+  var loginUserPhone = "";
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    fetchCallerInfoList();
+    isLogins();
   }
 
-  void fetchCallerInfoList()async{
-    var ApiUrl = StaticValues.apiURL;
-    final prefs = await SharedPreferences.getInstance();
-    var userData = prefs.getString('userData');
+  Future<void> isLogins() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    isLogin = prefs.getBool('isLogin') ?? false;
+    if (!isLogin) {
+      Navigator.pushNamed(context, "phone");
+    } else {
+      getContactList();
+    }
+  }
 
-    Map<String, dynamic> _userData = jsonDecode(userData!);
-    // print(jsonDecode(userData.toString()));
-
-    late final response;
+  Future<void> getContactList() async {
     try {
-      // response = await http.post(
-      //   Uri.parse("$ApiUrl/contact-list"),
-      //   headers: {
-      //     HttpHeaders.contentTypeHeader: "application/json",
-      //     'Authorization': 'Bearer $token',
-      //   },
-      //   body: jsonEncode(<String, String>{
-      //     'mobile': mobilenumber
-      //   }),
-      // );
-    }
-    catch (e) {
-      log(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Loading......'),
+        backgroundColor: Colors.green,
+      ));
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      var userdata = prefs.getString('user');
+      Map<String, dynamic> map = jsonDecode(userdata!);
+
+      var response = await ApiClient().contactList(map['app_token']);
+
+      if (!response.error) {
+        setState(() {
+          callerInfoList = response.user!.toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("This is loadded"),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Someting went wrong..'),
+        backgroundColor: Colors.green,
+      ));
     }
   }
+
   //
   @override
   Widget build(BuildContext context) {
-    final arguments = settings.arguments;
-    switch (settings.name) {
-      case '/users':
-        if (arguments is String) {
-          // the details page for one specific user
-          return UserDetails(arguments);
-        }
-        else {
-          // a route showing the list of all users
-          return UserList();
-        }
-      default:
-        return null;
-    }
     return Scaffold(
-          appBar: AppBar(
-            title: Text("Home"),
-            backgroundColor: Colors.green.shade600,
-          ),
-          body: ListView.builder(
-              itemCount: callerInfoList.length,
-              itemBuilder: (context, index) {
-                return  Card(
-                  child: ListTile(
-                    title: Text(callerInfoList[index]['mobile']),
-                    leading: CircleAvatar(
-                        child: Image.network(
-                            "https://img.favpng.com/3/7/23/login-google-account-computer-icons-user-png-favpng-ZwgqcU6LVRjJucQ9udYpX00qa.jpg")),
-                    trailing:IconButton(
-                      icon: Icon(
-                        Icons.directions_transit,
-                      ),
-                      iconSize: 50,
-                      color: Colors.green,
-                      splashColor: Colors.purple,
-                      onPressed: () {},
+        appBar: AppBar(
+          title: const Text("Home"),
+          backgroundColor: Colors.green.shade600,
+        ),
+        body: ListView.builder(
+            itemCount: callerInfoList.length,
+            itemBuilder: (context, index) {
+              return Card(
+                child: ListTile(
+                  title: Text(callerInfoList[index].name.toString()),
+                  leading: CircleAvatar(
+                      child: Image.network(callerInfoList[index].profile.toString())),
+                  trailing: IconButton(
+                    icon: const Icon(
+                      Icons.call,
                     ),
+                    iconSize: 30,
+                    color: Colors.green,
+                    splashColor: Colors.purple,
+                    onPressed: () {},
                   ),
-                );
-              }),
-          floatingActionButton: new FloatingActionButton(
-              elevation: 0.0,
-              child: new Icon(Icons.logout),
-              backgroundColor: Colors.green,
-              onPressed: () async{
-                Navigator.pushNamed(context, "phone");
-              }
-          )
-      );
+                ),
+              );
+            }),
+        floatingActionButton: FloatingActionButton(
+            elevation: 0.0,
+            child: const Icon(Icons.logout),
+            backgroundColor: Colors.green,
+            onPressed: () async {
+              print("logout");
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              prefs.clear();
+              Navigator.pushNamed(context, "phone");
+            }));
   }
 }

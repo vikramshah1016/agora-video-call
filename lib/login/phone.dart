@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'package:agora_video_call/login/verify.dart';
-import 'package:agora_video_call/servicies/login.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:sms_autofill/sms_autofill.dart';
-import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:mobile_number/mobile_number.dart';
+
+import '../utils/api_client.dart';
 
 class MyPhone extends StatefulWidget {
   const MyPhone({Key? key}) : super(key: key);
@@ -20,7 +18,7 @@ class MyPhone extends StatefulWidget {
 
 class _MyPhoneState extends State<MyPhone> {
   TextEditingController countryController = TextEditingController();
-  TextEditingController _phoneTextController = TextEditingController();
+  final TextEditingController _phoneTextController = TextEditingController();
 
   var phone = '';
   String appSignatureID = "";
@@ -47,14 +45,11 @@ class _MyPhoneState extends State<MyPhone> {
     print("initMobileNumberState");
     try {
       _mobileNumber = (await MobileNumber.mobileNumber)!;
-      List<SimCard> _simCard1 = (await MobileNumber.getSimCards)!;
-      print("await initMobileNumberState _simCard1");
+      List<SimCard> simCard1 = (await MobileNumber.getSimCards)!;
       setState(() {
-        _simCard = _simCard1;
+        _simCard = simCard1;
       });
       _displayDialog(context);
-      print(_mobileNumber);
-      print("_simCard");
     } on PlatformException catch (e) {
       debugPrint("Failed to get mobile number because of '${e.message}' ");
     }
@@ -67,8 +62,8 @@ class _MyPhoneState extends State<MyPhone> {
         .map((SimCard sim) => TextButton(
         onPressed: () {
           var simNumber = sim.number!;
-          var prefix = simNumber.substring(0, 3);
-          var updatedText = simNumber.substring(3);
+          var prefix = simNumber.substring(0,2);
+          var updatedText = simNumber.substring(2);
           _phoneTextController.value = _phoneTextController.value.copyWith(
             text: updatedText,
             selection: TextSelection.collapsed(offset: updatedText.length),
@@ -92,24 +87,43 @@ class _MyPhoneState extends State<MyPhone> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text("Select Phone number"),
+            title: const Text("Select Phone number"),
             content: SingleChildScrollView(child: fillCards(context)),
           );
         });
   }
 
-  Future<void> _login() async{
-    String phonenumber = _phoneTextController.text.trim();
-    loginService loginservice = new loginService(mobilenumber:phonenumber);
-    dynamic response = await loginservice.login();
-    if(response.statusCode == 200){
-      print(response.body);
-      // Navigator.pushNamed(context, 'verify');
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => MyVerify(loginservice: loginservice),
-        ),
-      );
+  void sendOtp() async {
+    try {
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Loading......'),
+        backgroundColor: Colors.green,
+      ));
+
+      var response = await ApiClient().login({'mobile':MyPhone.mobileNumber});
+
+      if(!response.error){
+
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ));
+
+        Navigator.pushNamed(context,'verify');
+
+      }else{
+        Navigator.pushNamed(context,'phone');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(response.message),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Somting went wrong.!"),
+        backgroundColor: Colors.green,
+      ));
     }
   }
 
@@ -117,7 +131,7 @@ class _MyPhoneState extends State<MyPhone> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        margin: EdgeInsets.only(left: 25, right: 25),
+        margin: const EdgeInsets.only(left: 25, right: 25),
         alignment: Alignment.center,
         child: SingleChildScrollView(
           child: Column(
@@ -128,24 +142,24 @@ class _MyPhoneState extends State<MyPhone> {
                 width: 150,
                 height: 150,
               ),
-              SizedBox(
+              const SizedBox(
                 height: 25,
               ),
-              Text(
+              const Text(
                 "phone",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              SizedBox(
+              const SizedBox(
                 height: 10,
               ),
-              Text(
+              const Text(
                 "We need to register your phone without getting started!",
                 style: TextStyle(
                   fontSize: 16,
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(
+              const SizedBox(
                 height: 30,
               ),
               Container(
@@ -156,7 +170,7 @@ class _MyPhoneState extends State<MyPhone> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 10,
                     ),
                     SizedBox(
@@ -164,24 +178,24 @@ class _MyPhoneState extends State<MyPhone> {
                       child: TextField(
                         controller: countryController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           border: InputBorder.none,
                         ),
                       ),
                     ),
                     // fillCards(),
-                    Text(
+                    const Text(
                       "|",
                       style: TextStyle(fontSize: 33, color: Colors.grey),
                     ),
-                    SizedBox(
+                    const SizedBox(
                       width: 10,
                     ),
                     Expanded(
                         child: TextField(
                           controller: _phoneTextController,
                           onTap: () {
-                            if (_phoneTextController.value.text.length == 0) {
+                            if (_phoneTextController.value.text.isEmpty) {
                               _displayDialog(context);
                             }
                           },
@@ -190,7 +204,7 @@ class _MyPhoneState extends State<MyPhone> {
                             MyPhone.mobileNumber = value;
                           },
                           keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             border: InputBorder.none,
                             hintText: "Phone",
                           ),
@@ -198,7 +212,7 @@ class _MyPhoneState extends State<MyPhone> {
                   ],
                 ),
               ),
-              SizedBox(
+              const SizedBox(
                 height: 20,
               ),
               SizedBox(
@@ -210,34 +224,11 @@ class _MyPhoneState extends State<MyPhone> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10))),
                     onPressed: () async {
-                      _login();
-                      // Navigator.pushNamed(context, 'verify');
-                      // await FirebaseAuth.instance.verifyPhoneNumber(
-                      //   phoneNumber: '${countryController.text + phone}',
-                      //   verificationCompleted:
-                      //       (PhoneAuthCredential credential) {},
-                      //   verificationFailed: (FirebaseAuthException e) {},
-                      //   codeSent:
-                      //       (String verificationId, int? resendToken) async {
-                      //     MyPhone.verificationId = verificationId;
-                      //
-                      //     appSignatureID = await SmsAutoFill().getAppSignature;
-                      //     log('your message here ${appSignatureID}');
-                      //
-                      //     Navigator.pushNamed(context, 'verify');
-                      //
-                      //     log('dsadsa');
-                      //   },
-                      //   codeAutoRetrievalTimeout: (String verificationId) {},
-                      // );
+                      MyPhone.mobileNumber = _phoneTextController.text;
+                          sendOtp();
                     },
-                    child: Text("Send the code")),
+                    child: const Text("Send the code")),
               ),
-
-              // SizedBox(
-              //   width: double.infinity,
-              //   height: 45,
-              //   child:fillCards()),
             ],
           ),
         ),
